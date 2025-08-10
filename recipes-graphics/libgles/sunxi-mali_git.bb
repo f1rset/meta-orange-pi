@@ -21,8 +21,8 @@ python __anonymous() {
         raise bb.parse.SkipPackage("%s-%s ONLY supports hardfp mode for now" % (pkgn, pkgv))
 }
 
-SRCREV_pn-${PN} = "d343311efc8db166d8371b28494f0f27b6a58724"
-SRC_URI = "gitsm://github.com/linux-sunxi/sunxi-mali.git \
+SRCREV = "d343311efc8db166d8371b28494f0f27b6a58724"
+SRC_URI = "git://github.com/linux-sunxi/sunxi-mali.git;protocol=https;branch=master \
            file://0001-Add-EGLSyncKHR-EGLTimeKHR-and-GLChar-definition.patch \
            file://0002-Add-missing-GLchar-definition.patch \
            file://0003-Fix-sed-to-replace-by-the-correct-var.patch \
@@ -31,7 +31,7 @@ SRC_URI = "gitsm://github.com/linux-sunxi/sunxi-mali.git \
 
 S = "${WORKDIR}/git"
 
-DEPENDS = "libdrm dri2proto libump"
+DEPENDS = "libdrm xorgproto libump patchelf-native"
 
 PACKAGECONFIG ??= "${@bb.utils.contains('DISTRO_FEATURES', 'x11', 'x11', '', d)} ${@bb.utils.contains('DISTRO_FEATURES', 'wayland', 'wayland', '', d)}"
 PACKAGECONFIG[wayland] = "EGL_TYPE=framebuffer,,,"
@@ -70,11 +70,13 @@ do_install() {
 
     make libdir=${D}${libdir}/ includedir=${D}${includedir}/ install
     make libdir=${D}${libdir}/ includedir=${D}${includedir}/ install -C include
+    rm -f ${D}${includedir}/KHR/khrplatform.h
 
     # Fix .so name and create symlinks, binary package provides .so wich can't be included directly in package without triggering the 'dev-so' QA check
     # Packages like xf86-video-fbturbo dlopen() libUMP.so, so we do need to ship the .so files in ${PN}
 
     mv ${D}${libdir}/libMali.so ${D}${libdir}/libMali.so.3
+    patchelf --set-soname libMali.so.3 ${D}${libdir}/libMali.so.3
     ln -sf libMali.so.3 ${D}${libdir}/libMali.so
 
     for flib in libEGL.so.1.4 libGLESv1_CM.so.1.1 libGLESv2.so.2.0 ; do
@@ -90,13 +92,13 @@ do_install() {
 # Packages like xf86-video-fbturbo dlopen() libUMP.so, so we do need to ship the .so files in ${PN}
 PACKAGES =+ "${PN}-test"
 
-RPROVIDES_${PN} += "libGLESv2.so libEGL.so libGLESv2.so libGLESv1_CM.so libMali.so"
-RDEPENDS_${PN}-test = "${PN}"
+RPROVIDES:${PN} += "libGLESv2.so libEGL.so libGLESv2.so libGLESv1_CM.so libMali.so"
+RDEPENDS:${PN}-test = "${PN}"
 
-FILES_${PN} += "${libdir}/lib*.so"
-FILES_${PN}-dev = "${includedir} ${libdir}/pkgconfig/*"
-FILES_${PN}-test = "${bindir}/sunximali-test"
+FILES:${PN} += "${libdir}/lib*.so"
+FILES:${PN}-dev = "${includedir} ${libdir}/pkgconfig/*"
+FILES:${PN}-test = "${bindir}/sunximali-test"
 
 # These are closed binaries generated elsewhere so don't check ldflags & text relocations
-INSANE_SKIP_${PN} = "dev-so ldflags textrel"
-INSANE_SKIP_${PN}-test = "dev-so ldflags textrel"
+INSANE_SKIP:${PN} = "dev-so ldflags textrel"
+INSANE_SKIP:${PN}-test = "dev-so ldflags textrel"
